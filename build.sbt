@@ -41,7 +41,7 @@ lazy val commonSettings = Seq(
   // NOTE: deliberately NOT setting `exportJars := false` here -- that's the
   // workaround; this build exists to reproduce the bug it works around. It's
   // confirmed to fix this repro too (see README) -- uncomment to check:
-  // , exportJars := false
+  //, exportJars := false
 )
 
 lazy val shared = (project in file("shared"))

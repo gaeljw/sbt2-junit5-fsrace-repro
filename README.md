@@ -14,6 +14,23 @@ This project instead demonstrates it arising naturally out of an ordinary sbt
 
 ## Run it
 
+No local sbt/JDK install needed — via Docker:
+
+```
+docker build -t sbt2-junit5-fsrace-repro .
+docker run --rm sbt2-junit5-fsrace-repro
+```
+
+The image pre-fetches dependencies and does one full build at build time (so
+`docker run` is fast, ~20s, and works offline) — that does **not** prevent
+the race from reproducing on `docker run`: it lives in a JVM-process-static
+map that starts empty on every fresh sbt/JVM process, i.e. on every
+container run, regardless of what's already on disk in the image layer. Run
+it a few times in a row (`for i in 1 2 3; do docker run --rm
+sbt2-junit5-fsrace-repro; done`) if the first one happens to pass.
+
+Or locally, with sbt + JDK 25 already installed:
+
 ```
 sbt "reload; cleanFull; testFull"
 ```
