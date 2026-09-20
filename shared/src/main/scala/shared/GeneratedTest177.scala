@@ -1,7 +1,0 @@
-package shared
-
-import org.junit.jupiter.api.Test
-
-class GeneratedTest177 {
-  @Test def test(): Unit = ()
-}

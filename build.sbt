@@ -4,14 +4,22 @@
 // See https://github.com/sbt/sbt/issues/9625 for the original report (which
 // went through sbt + Cucumber's cucumber-junit-platform-engine).
 //
+// IMPORTANT: a single-module version of this (16 @Suite classes all in one
+// project/classloader, scanning a package in that same project) does NOT
+// reproduce the bug -- see README, "Why a single module isn't enough". The
+// race needs 16 *separate classloaders* (sbt isolates each subproject's
+// dependencies into its own classloader) independently opening the exact
+// same physical jar file at once.
+//
 // Shape of this build:
 //  - `shared`: a single library project whose *compiled output* is packaged
 //    (as of sbt 2, exportJars defaults to true) into one content-addressed
-//    jar. It contains 500 plain, generated-up-front (see generate-shared-tests.py)
+//    jar. It contains 500 plain, checked-in (see generate-shared-tests.py)
 //    do-nothing JUnit Jupiter @Test classes, all in package `shared`.
-//  - `consumer1..consumerN`: N independent projects, all `.dependsOn(shared)`,
-//    each with its own copy (consumerN/src/test/scala/consumertest/RunSharedTests.scala)
-//    of a JUnit Platform `@Suite @SelectPackages(Array("shared"))` class.
+//  - `consumer1..consumer16`: 16 independent projects, each
+//    `.dependsOn(shared)`, each with its own physical copy of a JUnit
+//    Platform `@Suite @SelectPackages(Array("shared"))` class
+//    (consumerN/src/test/scala/consumertest/RunSharedTests.scala).
 //    Discovering that suite makes JUnit Platform scan the classpath for
 //    classes in package `shared` -- which means opening `shared`'s
 //    compiled-output jar as a java.nio.file.FileSystem.
@@ -29,8 +37,11 @@ val junitBomVersion = "6.1.3"
 lazy val commonSettings = Seq(
   scalaVersion := scala3,
   libraryDependencies += ("org.junit" % "junit-bom" % junitBomVersion).pomOnly(),
-  libraryDependencies += "com.github.sbt.junit" % "jupiter-interface" % JupiterKeys.jupiterVersion.value % Test,
-  //exportJars := false
+  libraryDependencies += "com.github.sbt.junit" % "jupiter-interface" % JupiterKeys.jupiterVersion.value % Test
+  // NOTE: deliberately NOT setting `exportJars := false` here -- that's the
+  // workaround; this build exists to reproduce the bug it works around. It's
+  // confirmed to fix this repro too (see README) -- uncomment to check:
+  // , exportJars := false
 )
 
 lazy val shared = (project in file("shared"))
@@ -38,6 +49,9 @@ lazy val shared = (project in file("shared"))
   .settings(
     name := "shared",
     libraryDependencies += "org.junit.jupiter" % "junit-jupiter-api" % "*"
+    // The 500 do-nothing @Test classes in shared/src/main/scala/shared/ are
+    // plain, checked-in files (see generate-shared-tests.py) -- not generated
+    // by sbt at build time.
   )
 
 // Same setup for the N consumer projects
